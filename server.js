@@ -113,6 +113,41 @@ app.post("/cadastrar-usuario", async (req, res) => {
   }
 });
 
+app.delete("/users/:id", async (req, res) => {
+  try {
+    const usuarios = await lerUsuarios();
+    const filtrados = usuarios.filter(u => u.id !== req.params.id);
+    if (filtrados.length === usuarios.length) {
+      return res.status(404).json({ ok: false, message: "Usuário não encontrado." });
+    }
+    await salvarUsuarios(filtrados);
+    res.json({ ok: true, message: "Usuário excluido com sucesso." });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ ok: false, message: "Erro ao excluir usuário." });
+  }
+});
+
+app.put("/users/:id", async (req, res) => {
+  try {
+    const usuarios = await lerUsuarios();
+    const idx = usuarios.findIndex(u => u.id === req.params.id);
+    if (idx === -1) {
+      return res.status(404).json({ ok: false, message: "Usuário não encontrado." });
+    }
+    usuarios[idx] = {
+      ...usuarios[idx],
+      ...req.body,
+      idade: Number(req.body.idade)
+    };
+    await salvarUsuarios(usuarios);
+    res.json({ ok: true, usuario: usuarios[idx] });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ ok: false, message: "Erro ao atualizar usuário." });
+  }
+});
+
 // -----------------------------------------------------------------------------
 // EXECUÇÃO DO SERVIDOR
 // -----------------------------------------------------------------------------

@@ -8,12 +8,12 @@ let paginaAtual = 1;
 const usuariosPorPagina = 20;
 
 // Define o campo e a ordem (crescente ou decrescente) para a ordenação
-let ordemAtual = { campo: "nome", crescente: true };
+let ordemAtual = {campo: null, crescente: true};
 
 // Função assíncrona que carrega os usuários da API
 async function carregarUsuarios() {
   // Faz uma requisição para a API que retorna 200 usuários
-  const resposta = await fetch("/list-users/1000000"); //Testar passando como parâmetro 1000000
+  const resposta = await fetch("http://localhost:3000/list-users/10000"); //Testar passando como parâmetro 1000000
 
   // Converte a resposta em JSON e armazena no array global
   usuarios = await resposta.json();
@@ -56,21 +56,15 @@ function comparaStrings(a, b, fullCompare = true) {
 }
 
 // Função de ordenação com o algoritmo da bolha
-function bubbleSort(arr, key, crescente = true) {
-  const tipo = typeof arr[0][key]; // Verifica se o campo é string ou número
-  const n = arr.length;
-
-  // Laços do algoritmo de ordenação da bolha
-  for (let i = 0; i < n - 1; i++) {
-    for (let j = 0; j < n - 1 - i; j++) {
-      let a = arr[j][key];
-      let b = arr[j + 1][key];
-
-      // Usa comparação de strings ou números, dependendo do tipo
-      let comp = tipo === "string" ? comparaStrings(a, b) : a - b;
-
-      // Troca os elementos se estiverem fora da ordem desejada
-      if ((crescente && comp > 0) || (!crescente && comp < 0)) {
+function bubbleSort(arr, campo, crescente) {
+  for (let i = 0; i < arr.length - 1; i++) {
+    for (let j = 0; j < arr.length - 1 - i; j++) {
+      // Se for crescente: swap quando arr[j] > arr[j+1]
+      // Se for decrescente: swap quando arr[j] < arr[j+1]
+      const deveTrocar = crescente
+        ? arr[j][campo] > arr[j + 1][campo]
+        : arr[j][campo] < arr[j + 1][campo];
+      if (deveTrocar) {
         [arr[j], arr[j + 1]] = [arr[j + 1], arr[j]];
       }
     }
@@ -138,18 +132,61 @@ function renderizarTabela(data) {
         <td>${u.idade}</td>
         <td>${u.endereco}</td>
         <td>${u.email}</td>
+        <td>
+          <button type="button" onclick="alterarUsuario('${u.id}')">Alterar</button>
+          <button type="button" onclick="excluirUsuario('${u.id}')">Excluir</button>
+        </td>
       </tr>`;
   });
-  // Existe esta outra forma de iterar os elementos desse vetor de objetos:
-  //  for(u of data){
-  //       tbody.innerHTML += `
-  //       <tr>
-  //         <td>${u.nome}</td>
-  //         <td>${u.idade}</td>
-  //         <td>${u.endereco}</td>
-  //         <td>${u.email}</td>
-  //       </tr>`;
-  // }
+}
+
+async function excluirUsuario(id) {
+  if (!confirm("Confirma a exclusão deste usuário?")) return;
+  try {
+    const resp = await fetch(`http://localhost:3000/users/${id}`, { method: "DELETE" });
+    const data = await resp.json();
+    if (!data.ok) throw new Error(data.message);
+    usuarios = usuarios.filter(u => u.id !== id);
+    const total = Math.ceil(usuarios.length / usuariosPorPagina);
+    paginaAtual = Math.min(paginaAtual, total);
+    atualizarPaginacao();
+  } catch (err) {
+    alert("Falha ao excluir: " + err.message);
+  }
+}
+
+async function alterarUsuario(id) {
+  const usuario = usuarios.find(u => u.id === id);
+  if (!usuario) return alert("Usuário não encontrado.");
+  const novoNome = prompt("Nome:", usuario.nome);
+  if (novoNome === null) return;
+  const novaIdade = prompt("Idade:", usuario.idade);
+  if (novaIdade === null) return;
+  const novoEndereco = prompt("Endereço:", usuario.endereco);
+  if (novoEndereco === null) return;
+  const novoEmail = prompt("E‑mail:", usuario.email);
+  if (novoEmail === null) return;
+
+  const payload = {
+    nome: novoNome,
+    idade: Number(novaIdade),
+    endereco: novoEndereco,
+    email: novoEmail
+  };
+
+  try {
+    const resp = await fetch(`http://localhost:3000/users/${id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    });
+    const data = await resp.json();
+    if (!data.ok) throw new Error(data.message);
+    Object.assign(usuario, data.usuario);
+    atualizarPaginacao();
+  } catch (err) {
+    alert("Falha ao alterar: " + err.message);
+  }
 }
 
 // Quando a página for carregada, executa a função que busca os usuários
